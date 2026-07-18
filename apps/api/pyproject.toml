@@ -1,0 +1,46 @@
+[project]
+name = "kahucik-api"
+version = "0.1.0"
+description = "Kahúcik live quiz API"
+readme = "README.md"
+authors = [
+    { name = "Daniel Goboňa", email = "daniel.gobona@cde.sk" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.18.5",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.31.0",
+    "boto3>=1.43.51",
+    "email-validator>=2.3.0",
+    "fastapi>=0.139.2",
+    "greenlet>=3.5.3",
+    "httpx>=0.28.1",
+    "orjson>=3.11.9",
+    "pillow>=12.3.0",
+    "pydantic-settings>=2.14.2",
+    "pydantic[email]>=2.13.4",
+    "python-multipart>=0.0.32",
+    "qrcode>=8.2",
+    "redis>=8.0.1",
+    "sqlalchemy>=2.0.51",
+    "uvicorn[standard]>=0.51.0",
+    "websockets>=16.1.1",
+]
+
+[project.scripts]
+kahucik-api = "kahucik_api:main"
+
+[build-system]
+requires = ["uv_build>=0.11.13,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.3.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.22",
+    "types-redis>=4.6.0.20241004",
+]

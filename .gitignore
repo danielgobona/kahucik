@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+.next/
+dist/
+data/
+*.egg-info/
+.DS_Store
+coverage/
+playwright-report/
+test-results/
+apps/web/tsconfig.tsbuildinfo
