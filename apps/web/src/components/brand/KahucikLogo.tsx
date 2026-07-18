@@ -150,8 +150,8 @@ export function KahucikLogo({ variant = "full", className }: KahucikLogoProps) {
       className={cn("flex select-none items-center justify-center gap-3", className)}
     >
       <RoosterMark className="h-full w-auto max-h-full" />
-      <div className="text-left leading-none">
-        <p className="text-4xl font-extrabold tracking-tight text-slate-800 sm:text-5xl">
+      <div className="font-logo text-left leading-none">
+        <p className="text-4xl font-bold tracking-tight text-slate-800 sm:text-5xl">
           Kah<span className="text-coral-500">ú</span>cik
         </p>
         <p className="mt-1.5 text-[0.7rem] font-semibold tracking-[0.12em] text-slate-400 sm:text-xs">
