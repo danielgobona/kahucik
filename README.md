@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo-wordmark.svg" alt="Kahúcik" width="360" />
+  <img src="docs/assets/logo-wordmark.png" alt="Kahúcik" width="360" />
 </p>
 
 # Kahúcik
