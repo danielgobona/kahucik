@@ -1,6 +1,22 @@
+<p align="center">
+  <img src="docs/assets/logo-wordmark.svg" alt="Kahúcik" width="360" />
+</p>
+
 # Kahúcik
 
 Self-hosted live quiz platform inspired by Kahoot — FastAPI + Next.js + PostgreSQL + Redis, packaged with Docker Compose.
+
+## Screenshots
+
+<p align="center">
+  <strong>Host lobby</strong><br />
+  <img src="docs/assets/host-lobby.png" alt="Host lobby with QR code and player list" width="720" />
+</p>
+
+<p align="center">
+  <strong>Player answering</strong><br />
+  <img src="docs/assets/player-play.png" alt="Player answering a live quiz question" width="280" />
+</p>
 
 ## Quick start
 
