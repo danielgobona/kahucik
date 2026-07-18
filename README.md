@@ -6,16 +6,17 @@ Self-hosted live quiz platform inspired by Kahoot — FastAPI + Next.js + Postgr
 
 ```bash
 cp .env.example .env
-docker compose up --build
+./scripts/redeploy.sh
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
 
-If you are in WSL and `docker` cannot reach the daemon, use Docker Desktop’s Windows CLI:
+`scripts/redeploy.sh` rebuilds all images, starts the full Compose stack, and waits for `/api/health`. It auto-picks `docker` or Windows `docker.exe` when running under WSL.
 
 ```bash
-docker.exe compose up --build -d
-# or: make DOCKER=docker.exe up
+# equivalents
+make redeploy
+DOCKER=docker.exe ./scripts/redeploy.sh
 ```
 
 Also enable **Settings → Resources → WSL integration** for your distro so native `docker` works.

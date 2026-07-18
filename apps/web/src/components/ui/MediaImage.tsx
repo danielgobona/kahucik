@@ -13,20 +13,26 @@ export function MediaImage({
   alt?: string;
   className?: string;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [resolved, setResolved] = useState<{ id: string; url: string } | null>(null);
 
   useEffect(() => {
-    if (!mediaId) {
-      setUrl(null);
-      return;
-    }
+    if (!mediaId) return;
+    let cancelled = false;
     api
       .getMedia(mediaId)
-      .then((m) => setUrl(m.url))
-      .catch(() => setUrl(null));
+      .then((m) => {
+        if (!cancelled) setResolved({ id: mediaId, url: m.url });
+      })
+      .catch(() => {
+        if (!cancelled) setResolved(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [mediaId]);
 
-  if (!mediaId || !url) return null;
+  const url = mediaId && resolved?.id === mediaId ? resolved.url : null;
+  if (!url) return null;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element

@@ -42,7 +42,10 @@ export function useGameSocket({
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
+
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   const handleMessage = useCallback((msg: WsMessage) => {
     if (msg.type === "snapshot") {

@@ -1,4 +1,4 @@
-.PHONY: up down build logs test-api test-web migrate
+.PHONY: up down build logs test-api test-web migrate redeploy
 
 # On WSL without /var/run/docker.sock, use: make DOCKER="docker.exe" up
 DOCKER ?= docker
@@ -18,8 +18,12 @@ logs:
 migrate:
 	$(DOCKER) compose run --rm migrate
 
+redeploy:
+	./scripts/redeploy.sh
+
 test-api:
 	cd apps/api && uv run pytest -q
 
 test-web:
 	cd apps/web && npm run build
+

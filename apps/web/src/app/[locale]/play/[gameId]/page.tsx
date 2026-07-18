@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
@@ -10,86 +10,99 @@ import {
   PlayerAnswerPanel,
   QuestionPrompt,
 } from "@/components/game/PlayerAnswerPanel";
-import { useGameSocket } from "@/hooks/useGameSocket";
+import { useGameSocket, type WsMessage } from "@/hooks/useGameSocket";
 import type { GameSnapshot, PublicQuestion, RankedParticipant } from "@/lib/types";
 
-function usePlayerState(
-  snapshot: GameSnapshot | null,
-  lastEvent: { type: string; payload: Record<string, unknown> } | null,
-) {
-  const [question, setQuestion] = useState<PublicQuestion | null>(null);
-  const [deadline, setDeadline] = useState<number | null>(null);
-  const [status, setStatus] = useState("lobby");
-  const [locked, setLocked] = useState(false);
-  const [reveal, setReveal] = useState<{
-    is_correct?: boolean;
-    points?: number;
-    score?: number;
-    rank?: number;
-  } | null>(null);
-  const [leaderboard, setLeaderboard] = useState<RankedParticipant[]>([]);
+type RevealState = {
+  is_correct?: boolean;
+  points?: number;
+  score?: number;
+  rank?: number;
+} | null;
 
-  useEffect(() => {
-    if (!snapshot) return;
-    setStatus(snapshot.status);
-    setDeadline(snapshot.deadline);
-    if (snapshot.question) setQuestion(snapshot.question);
-    if (snapshot.my_submission?.locked) setLocked(true);
-    if (snapshot.my_rank) {
-      setReveal((r) => ({ ...r, rank: snapshot.my_rank, score: snapshot.me?.score }));
-    }
-  }, [snapshot]);
+type PlayerLiveState = {
+  question: PublicQuestion | null;
+  deadline: number | null;
+  status: string;
+  locked: boolean;
+  reveal: RevealState;
+  leaderboard: RankedParticipant[];
+  meId: string | null;
+};
 
-  useEffect(() => {
-    if (!lastEvent) return;
-    const p = lastEvent.payload;
-    switch (lastEvent.type) {
-      case "countdown":
-        setStatus("countdown");
-        setLocked(false);
-        setReveal(null);
-        break;
-      case "question":
-        setStatus("question_active");
-        setQuestion(p.question as PublicQuestion);
-        setDeadline(Number(p.deadline));
-        setLocked(false);
-        setReveal(null);
-        break;
-      case "answer_locked":
-        if (p.participant_id === snapshot?.me?.id) setLocked(true);
-        break;
-      case "answer_ack":
-        setLocked(true);
-        break;
-      case "question_reveal": {
-        setStatus("question_reveal");
-        setQuestion(p.question as PublicQuestion);
-        const me = (p.players as Array<Record<string, unknown>>)?.find(
-          (x) => x.participant_id === snapshot?.me?.id,
-        );
-        if (me) {
-          setReveal({
-            is_correct: Boolean(me.is_correct),
-            points: Number(me.points_awarded ?? 0),
-            score: Number(me.score ?? 0),
-            rank: Number(me.rank ?? 0),
-          });
-        }
-        break;
+function liveFromSnapshot(snapshot: GameSnapshot): PlayerLiveState {
+  return {
+    status: snapshot.status,
+    deadline: snapshot.deadline,
+    question: snapshot.question ?? null,
+    locked: Boolean(snapshot.my_submission?.locked),
+    reveal: snapshot.my_rank
+      ? { rank: snapshot.my_rank, score: snapshot.me?.score }
+      : null,
+    leaderboard: snapshot.leaderboard ?? [],
+    meId: snapshot.me?.id ?? null,
+  };
+}
+
+function applyPlayerEvent(state: PlayerLiveState, msg: WsMessage): PlayerLiveState {
+  const p = msg.payload;
+  switch (msg.type) {
+    case "countdown":
+      return {
+        ...state,
+        status: "countdown",
+        locked: false,
+        reveal: null,
+      };
+    case "question":
+      return {
+        ...state,
+        status: "question_active",
+        question: p.question as PublicQuestion,
+        deadline: Number(p.deadline),
+        locked: false,
+        reveal: null,
+      };
+    case "answer_locked":
+      if (p.participant_id === state.meId) {
+        return { ...state, locked: true };
       }
-      case "leaderboard":
-        setStatus("leaderboard");
-        setLeaderboard((p.leaderboard as RankedParticipant[]) ?? []);
-        break;
-      case "finished":
-        setStatus("finished");
-        setLeaderboard((p.leaderboard as RankedParticipant[]) ?? []);
-        break;
+      return state;
+    case "answer_ack":
+      return { ...state, locked: true };
+    case "question_reveal": {
+      const me = (p.players as Array<Record<string, unknown>>)?.find(
+        (x) => x.participant_id === state.meId,
+      );
+      return {
+        ...state,
+        status: "question_reveal",
+        question: p.question as PublicQuestion,
+        reveal: me
+          ? {
+              is_correct: Boolean(me.is_correct),
+              points: Number(me.points_awarded ?? 0),
+              score: Number(me.score ?? 0),
+              rank: Number(me.rank ?? 0),
+            }
+          : state.reveal,
+      };
     }
-  }, [lastEvent, snapshot?.me?.id]);
-
-  return { question, deadline, status, locked, reveal, leaderboard };
+    case "leaderboard":
+      return {
+        ...state,
+        status: "leaderboard",
+        leaderboard: (p.leaderboard as RankedParticipant[]) ?? [],
+      };
+    case "finished":
+      return {
+        ...state,
+        status: "finished",
+        leaderboard: (p.leaderboard as RankedParticipant[]) ?? [],
+      };
+    default:
+      return state;
+  }
 }
 
 export default function PlayPage() {
@@ -97,19 +110,27 @@ export default function PlayPage() {
   const tc = useTranslations("common");
   const params = useParams<{ gameId: string }>();
   const gameId = params.gameId;
+  const [live, setLive] = useState<PlayerLiveState | null>(null);
 
-  const { connected, snapshot, lastEvent, error, sendAnswer } = useGameSocket({
+  const onEvent = useCallback((msg: WsMessage) => {
+    if (msg.type === "snapshot") {
+      setLive(liveFromSnapshot(msg.payload as unknown as GameSnapshot));
+      return;
+    }
+    setLive((prev) => (prev ? applyPlayerEvent(prev, msg) : prev));
+  }, []);
+
+  const { connected, snapshot, error, sendAnswer } = useGameSocket({
     gameId,
     role: "player",
+    onEvent,
   });
-
-  const live = usePlayerState(snapshot, lastEvent);
 
   if (error) {
     return <p className="text-rose-600">{error}</p>;
   }
 
-  if (!connected || !snapshot) {
+  if (!connected || !snapshot || !live) {
     return <p className="text-slate-500">{tc("loading")}</p>;
   }
 

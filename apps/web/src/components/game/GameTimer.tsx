@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
+
+function subscribe(onStoreChange: () => void) {
+  const id = setInterval(onStoreChange, 250);
+  return () => clearInterval(id);
+}
+
+function remainingSeconds(deadline: number | null) {
+  if (!deadline) return 0;
+  return Math.max(0, Math.ceil(deadline - Date.now() / 1000));
+}
 
 export function GameTimer({
   deadline,
@@ -10,20 +20,11 @@ export function GameTimer({
   deadline: number | null;
   className?: string;
 }) {
-  const [remaining, setRemaining] = useState(0);
-
-  useEffect(() => {
-    if (!deadline) {
-      setRemaining(0);
-      return;
-    }
-    const tick = () => {
-      setRemaining(Math.max(0, Math.ceil(deadline - Date.now() / 1000)));
-    };
-    tick();
-    const id = setInterval(tick, 250);
-    return () => clearInterval(id);
-  }, [deadline]);
+  const remaining = useSyncExternalStore(
+    subscribe,
+    () => remainingSeconds(deadline),
+    () => 0,
+  );
 
   if (!deadline) return null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
@@ -9,98 +9,90 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { GameTimer } from "@/components/game/GameTimer";
 import { LeaderboardList } from "@/components/game/LeaderboardList";
 import { QuestionPrompt } from "@/components/game/PlayerAnswerPanel";
-import { useGameSocket } from "@/hooks/useGameSocket";
+import { useGameSocket, type WsMessage } from "@/hooks/useGameSocket";
 import type { GameSnapshot, PublicQuestion, RankedParticipant } from "@/lib/types";
 import { KahucikLogo } from "@/components/brand/KahucikLogo";
 import { Users } from "lucide-react";
 
-function useLiveState(
-  snapshot: GameSnapshot | null,
-  lastEvent: { type: string; payload: Record<string, unknown> } | null,
-) {
-  // Event-driven overrides; null means "use authoritative snapshot.status"
-  const [eventStatus, setEventStatus] = useState<string | null>(null);
-  const [question, setQuestion] = useState<PublicQuestion | null>(null);
-  const [deadline, setDeadline] = useState<number | null>(null);
-  const [answered, setAnswered] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [leaderboard, setLeaderboard] = useState<RankedParticipant[]>([]);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [participants, setParticipants] = useState<GameSnapshot["participants"]>([]);
-  const [questionIndex, setQuestionIndex] = useState(0);
+type HostLiveState = {
+  eventStatus: string | null;
+  question: PublicQuestion | null;
+  deadline: number | null;
+  answered: number;
+  total: number;
+  leaderboard: RankedParticipant[];
+  countdown: number | null;
+  participants: GameSnapshot["participants"];
+  questionIndex: number;
+};
 
-  useEffect(() => {
-    if (!snapshot) return;
-    // Reconnect/snapshot is source of truth — clear stale event overrides
-    setEventStatus(null);
-    setAnswered(snapshot.answered);
-    setTotal(snapshot.total_present);
-    setDeadline(snapshot.deadline);
-    setParticipants(snapshot.participants ?? []);
-    setQuestionIndex(snapshot.current_question_index);
-    if (snapshot.question) setQuestion(snapshot.question);
-    if (snapshot.leaderboard) setLeaderboard(snapshot.leaderboard);
-  }, [snapshot]);
-
-  useEffect(() => {
-    if (!lastEvent) return;
-    // Snapshot messages only refresh baseline state above
-    if (lastEvent.type === "snapshot") return;
-
-    const p = lastEvent.payload;
-    switch (lastEvent.type) {
-      case "lobby_update":
-        if (Array.isArray(p.participants)) {
-          const list = p.participants as GameSnapshot["participants"];
-          setParticipants(list);
-          setTotal(list.length);
-        }
-        break;
-      case "countdown":
-        setEventStatus("countdown");
-        setCountdown(Number(p.seconds ?? 0));
-        if (p.deadline) setDeadline(Number(p.deadline));
-        break;
-      case "question":
-        setEventStatus("question_active");
-        setQuestion(p.question as PublicQuestion);
-        setDeadline(Number(p.deadline));
-        setAnswered(0);
-        if (typeof p.index === "number") setQuestionIndex(p.index);
-        break;
-      case "answer_progress":
-        setAnswered(Number(p.answered ?? 0));
-        setTotal(Number(p.total ?? 0));
-        break;
-      case "question_reveal":
-        setEventStatus("question_reveal");
-        setQuestion(p.question as PublicQuestion);
-        setLeaderboard((p.leaderboard as RankedParticipant[]) ?? []);
-        break;
-      case "leaderboard":
-        setEventStatus("leaderboard");
-        setLeaderboard((p.leaderboard as RankedParticipant[]) ?? []);
-        break;
-      case "finished":
-        setEventStatus("finished");
-        setLeaderboard((p.leaderboard as RankedParticipant[]) ?? []);
-        break;
-    }
-  }, [lastEvent]);
-
-  const status = eventStatus ?? snapshot?.status ?? "lobby";
-
+function liveFromSnapshot(snapshot: GameSnapshot): HostLiveState {
   return {
-    question,
-    deadline,
-    answered,
-    total,
-    leaderboard,
-    status,
-    countdown,
-    participants,
-    questionIndex,
+    eventStatus: null,
+    answered: snapshot.answered,
+    total: snapshot.total_present,
+    deadline: snapshot.deadline,
+    participants: snapshot.participants ?? [],
+    questionIndex: snapshot.current_question_index,
+    question: snapshot.question ?? null,
+    leaderboard: snapshot.leaderboard ?? [],
+    countdown: null,
   };
+}
+
+function applyHostEvent(state: HostLiveState, msg: WsMessage): HostLiveState {
+  const p = msg.payload;
+  switch (msg.type) {
+    case "lobby_update":
+      if (Array.isArray(p.participants)) {
+        const list = p.participants as GameSnapshot["participants"];
+        return { ...state, participants: list, total: list.length };
+      }
+      return state;
+    case "countdown":
+      return {
+        ...state,
+        eventStatus: "countdown",
+        countdown: Number(p.seconds ?? 0),
+        deadline: p.deadline ? Number(p.deadline) : state.deadline,
+      };
+    case "question":
+      return {
+        ...state,
+        eventStatus: "question_active",
+        question: p.question as PublicQuestion,
+        deadline: Number(p.deadline),
+        answered: 0,
+        questionIndex: typeof p.index === "number" ? p.index : state.questionIndex,
+      };
+    case "answer_progress":
+      return {
+        ...state,
+        answered: Number(p.answered ?? 0),
+        total: Number(p.total ?? 0),
+      };
+    case "question_reveal":
+      return {
+        ...state,
+        eventStatus: "question_reveal",
+        question: p.question as PublicQuestion,
+        leaderboard: (p.leaderboard as RankedParticipant[]) ?? [],
+      };
+    case "leaderboard":
+      return {
+        ...state,
+        eventStatus: "leaderboard",
+        leaderboard: (p.leaderboard as RankedParticipant[]) ?? [],
+      };
+    case "finished":
+      return {
+        ...state,
+        eventStatus: "finished",
+        leaderboard: (p.leaderboard as RankedParticipant[]) ?? [],
+      };
+    default:
+      return state;
+  }
 }
 
 export default function HostPage() {
@@ -108,11 +100,22 @@ export default function HostPage() {
   const tc = useTranslations("common");
   const params = useParams<{ gameId: string }>();
   const gameId = params.gameId;
+  const [liveState, setLiveState] = useState<HostLiveState | null>(null);
 
-  const { connected, snapshot, lastEvent, error, hostStart, hostShowLeaderboard, hostNext } =
-    useGameSocket({ gameId, role: "host" });
+  const onEvent = useCallback((msg: WsMessage) => {
+    if (msg.type === "snapshot") {
+      setLiveState(liveFromSnapshot(msg.payload as unknown as GameSnapshot));
+      return;
+    }
+    setLiveState((prev) => (prev ? applyHostEvent(prev, msg) : prev));
+  }, []);
 
-  const live = useLiveState(snapshot, lastEvent);
+  const { connected, snapshot, error, hostStart, hostShowLeaderboard, hostNext } =
+    useGameSocket({ gameId, role: "host", onEvent });
+
+  const live = liveState;
+  const status = live?.eventStatus ?? snapshot?.status ?? "lobby";
+
   const joinUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
     const code = snapshot?.code ?? "";
@@ -123,7 +126,7 @@ export default function HostPage() {
     return <p className="text-rose-600">{error}</p>;
   }
 
-  if (!connected || !snapshot) {
+  if (!connected || !snapshot || !live) {
     return <p className="text-slate-500">{tc("loading")}</p>;
   }
 
@@ -136,7 +139,7 @@ export default function HostPage() {
         </span>
       </div>
 
-      {live.status === "lobby" && (
+      {status === "lobby" && (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="flex flex-col items-center gap-4 py-8">
             <CardTitle>{t("scanQr")}</CardTitle>
@@ -178,7 +181,7 @@ export default function HostPage() {
         </div>
       )}
 
-      {live.status === "countdown" && (
+      {status === "countdown" && (
         <div className="flex flex-col items-center gap-6 py-20">
           <p className="text-2xl font-semibold text-slate-600">
             {t("countdown", { seconds: live.countdown ?? 3 })}
@@ -187,7 +190,7 @@ export default function HostPage() {
         </div>
       )}
 
-      {(live.status === "question_active" || live.status === "question_reveal") &&
+      {(status === "question_active" || status === "question_reveal") &&
         live.question && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -198,7 +201,7 @@ export default function HostPage() {
                 })}
               </p>
               <div className="flex items-center gap-4">
-                {live.status === "question_active" && (
+                {status === "question_active" && (
                   <>
                     <GameTimer deadline={live.deadline} />
                     <span className="rounded-full bg-sky-100 px-4 py-2 font-semibold text-sky-800">
@@ -209,7 +212,7 @@ export default function HostPage() {
               </div>
             </div>
             <QuestionPrompt question={live.question} />
-            {live.status === "question_reveal" && (
+            {status === "question_reveal" && (
               <div className="flex flex-wrap justify-center gap-3">
                 <Button size="lg" onClick={hostShowLeaderboard}>
                   {t("showLeaderboard")}
@@ -222,13 +225,13 @@ export default function HostPage() {
           </div>
         )}
 
-      {(live.status === "leaderboard" || live.status === "finished") && (
+      {(status === "leaderboard" || status === "finished") && (
         <div className="mx-auto max-w-lg space-y-6">
           <h2 className="text-center text-3xl font-bold">
-            {live.status === "finished" ? t("finished") : t("showLeaderboard")}
+            {status === "finished" ? t("finished") : t("showLeaderboard")}
           </h2>
           <LeaderboardList entries={live.leaderboard} />
-          {live.status === "leaderboard" && (
+          {status === "leaderboard" && (
             <Button className="w-full" size="lg" onClick={hostNext}>
               {t("next")}
             </Button>

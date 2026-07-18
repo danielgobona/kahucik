@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/Button";
-import { Card, CardTitle } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { api, ApiClientError } from "@/lib/api";
 import type { GameHistoryItem, QuizSummary } from "@/lib/types";
 import { useAuthStore } from "@/stores/authStore";
@@ -17,9 +17,10 @@ export default function DashboardPage() {
   const { user, initialized, fetchMe } = useAuthStore();
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [history, setHistory] = useState<GameHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hostingId, setHostingId] = useState<string | null>(null);
+  const loading = !user || loadedUserId !== user.id;
 
   useEffect(() => {
     void fetchMe().then((u) => {
@@ -29,16 +30,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
+    let cancelled = false;
     Promise.all([api.listQuizzes(), api.gameHistory()])
       .then(([q, h]) => {
+        if (cancelled) return;
         setQuizzes(q);
         setHistory(h);
+        setLoadedUserId(user.id);
       })
-      .catch((err) =>
-        setError(err instanceof ApiClientError ? err.detail : tc("error")),
-      )
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof ApiClientError ? err.detail : tc("error"));
+        setLoadedUserId(user.id);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, tc]);
 
   const handleHost = async (quizId: string) => {
