@@ -103,3 +103,7 @@ Recommended single-server resources for 100 players: 2 vCPU / 4 GB RAM.
 - Set `PUBLIC_BASE_URL` to your public URL.
 - For multi-instance media, set `MEDIA_BACKEND=s3` and S3 variables.
 - Only expose the Caddy port publicly.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
