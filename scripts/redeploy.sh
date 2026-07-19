@@ -28,8 +28,34 @@ resolve_docker() {
   exit 1
 }
 
+# Prefer Compose V2 plugin ("docker compose"); fall back to standalone docker-compose.
+resolve_compose() {
+  local docker="$1"
+  if [[ -n "${COMPOSE:-}" ]]; then
+    # COMPOSE can be a full command string, e.g. "docker compose" or "docker-compose"
+    echo "$COMPOSE"
+    return
+  fi
+  if "$docker" compose version >/dev/null 2>&1; then
+    echo "$docker compose"
+    return
+  fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    echo "docker-compose"
+    return
+  fi
+  echo "error: Docker Compose is not available." >&2
+  echo "  Install the plugin, e.g.:" >&2
+  echo "    sudo apt update && sudo apt install -y docker-compose-plugin" >&2
+  echo "  Or the standalone binary: sudo apt install -y docker-compose" >&2
+  exit 1
+}
+
 DOCKER="$(resolve_docker)"
+# shellcheck disable=SC2206
+COMPOSE_CMD=($(resolve_compose "$DOCKER"))
 echo "==> Using Docker CLI: $DOCKER"
+echo "==> Using Compose:    ${COMPOSE_CMD[*]}"
 
 if [[ ! -f .env ]]; then
   echo "==> Creating .env from .env.example"
@@ -45,10 +71,10 @@ HTTP_PORT="${HTTP_PORT:-8080}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://localhost:${HTTP_PORT}}"
 
 echo "==> Building images"
-"$DOCKER" compose build
+"${COMPOSE_CMD[@]}" build
 
 echo "==> Starting stack"
-"$DOCKER" compose up -d --remove-orphans
+"${COMPOSE_CMD[@]}" up -d --remove-orphans
 
 echo "==> Waiting for API health"
 ok=0
@@ -61,7 +87,7 @@ for _ in $(seq 1 60); do
 done
 
 echo
-"$DOCKER" compose ps
+"${COMPOSE_CMD[@]}" ps
 echo
 
 if [[ "$ok" -eq 1 ]]; then
@@ -70,6 +96,6 @@ if [[ "$ok" -eq 1 ]]; then
   echo "    Health: ${PUBLIC_BASE_URL}/api/health"
 else
   echo "==> Stack started but API health check did not pass yet." >&2
-  echo "    Check logs: $DOCKER compose logs -f api web caddy" >&2
+  echo "    Check logs: ${COMPOSE_CMD[*]} logs -f api web caddy" >&2
   exit 1
 fi
