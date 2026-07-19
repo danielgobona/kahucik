@@ -28,11 +28,12 @@ resolve_docker() {
   exit 1
 }
 
-# Prefer Compose V2 plugin ("docker compose"); fall back to standalone docker-compose.
+# Prefer Compose V2 plugin ("docker compose"). Refuse legacy docker-compose v1 —
+# it crashes with KeyError: 'ContainerConfig' on modern Docker Engine.
 resolve_compose() {
   local docker="$1"
   if [[ -n "${COMPOSE:-}" ]]; then
-    # COMPOSE can be a full command string, e.g. "docker compose" or "docker-compose"
+    # COMPOSE can be a full command string, e.g. "docker compose"
     echo "$COMPOSE"
     return
   fi
@@ -40,14 +41,11 @@ resolve_compose() {
     echo "$docker compose"
     return
   fi
-  if command -v docker-compose >/dev/null 2>&1; then
-    echo "docker-compose"
-    return
-  fi
-  echo "error: Docker Compose is not available." >&2
-  echo "  Install the plugin, e.g.:" >&2
+  echo "error: Docker Compose V2 plugin is required (not legacy docker-compose 1.x)." >&2
+  echo "  On the host, install:" >&2
   echo "    sudo apt update && sudo apt install -y docker-compose-plugin" >&2
-  echo "  Or the standalone binary: sudo apt install -y docker-compose" >&2
+  echo "  Then verify: docker compose version" >&2
+  echo "  (Optional override: COMPOSE=\"docker compose\" ./scripts/redeploy.sh)" >&2
   exit 1
 }
 
@@ -56,6 +54,18 @@ DOCKER="$(resolve_docker)"
 COMPOSE_CMD=($(resolve_compose "$DOCKER"))
 echo "==> Using Docker CLI: $DOCKER"
 echo "==> Using Compose:    ${COMPOSE_CMD[*]}"
+
+# Guard against COMPOSE override pointing at broken v1.
+if ! "${COMPOSE_CMD[@]}" version >/dev/null 2>&1; then
+  echo "error: Compose command failed: ${COMPOSE_CMD[*]}" >&2
+  exit 1
+fi
+compose_ver="$("${COMPOSE_CMD[@]}" version 2>/dev/null || true)"
+if [[ "$compose_ver" == *"docker-compose version 1."* ]] || [[ "$compose_ver" == *"compose version 1."* ]]; then
+  echo "error: Detected Compose v1 ($compose_ver)." >&2
+  echo "  Install docker-compose-plugin and use: docker compose ..." >&2
+  exit 1
+fi
 
 if [[ ! -f .env ]]; then
   echo "==> Creating .env from .env.example"
