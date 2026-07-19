@@ -1,6 +1,5 @@
 import type {
   AnswerPayload,
-  ApiError,
   GameHistoryItem,
   GameOut,
   JoinResponse,

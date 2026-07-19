@@ -100,6 +100,24 @@ function newQuestion(type: QuestionType = "quiz"): QuestionIn {
   };
 }
 
+function initialDraft(quizId?: string): QuizDraft {
+  const draft = readDraft(quizId);
+  if (draft) {
+    return {
+      title: draft.title,
+      description: draft.description,
+      questions: draft.questions.length ? draft.questions : [newQuestion()],
+      openIndex: draft.openIndex,
+    };
+  }
+  return {
+    title: "",
+    description: "",
+    questions: [newQuestion()],
+    openIndex: null,
+  };
+}
+
 function typeLabel(
   type: QuestionType,
   t: ReturnType<typeof useTranslations<"quiz">>,
@@ -365,13 +383,20 @@ export function QuizEditor({
   const t = useTranslations("quiz");
   const tc = useTranslations("common");
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [questions, setQuestions] = useState<QuestionIn[]>([newQuestion()]);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [title, setTitle] = useState(() => {
+    const draft = initialDraft(quizId);
+    return draft.title;
+  });
+  const [description, setDescription] = useState(() => initialDraft(quizId).description);
+  const [questions, setQuestions] = useState<QuestionIn[]>(
+    () => initialDraft(quizId).questions,
+  );
+  const [openIndex, setOpenIndex] = useState<number | null>(
+    () => initialDraft(quizId).openIndex,
+  );
   const [status, setStatus] = useState<string>("draft");
-  const [loading, setLoading] = useState(true);
-  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(!!quizId);
+  const [hydrated, setHydrated] = useState(!quizId);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -386,26 +411,10 @@ export function QuizEditor({
   );
 
   useEffect(() => {
+    if (!quizId) return;
+
     let cancelled = false;
     const draft = readDraft(quizId);
-
-    const applyDraft = (d: QuizDraft) => {
-      setTitle(d.title);
-      setDescription(d.description);
-      setQuestions(d.questions.length ? d.questions : [newQuestion()]);
-      setOpenIndex(d.openIndex);
-    };
-
-    if (!quizId) {
-      if (draft) applyDraft(draft);
-      if (!cancelled) {
-        setLoading(false);
-        setHydrated(true);
-      }
-      return () => {
-        cancelled = true;
-      };
-    }
 
     api
       .getQuiz(quizId)
@@ -413,7 +422,10 @@ export function QuizEditor({
         if (cancelled) return;
         setStatus(quiz.status);
         if (draft) {
-          applyDraft(draft);
+          setTitle(draft.title);
+          setDescription(draft.description);
+          setQuestions(draft.questions.length ? draft.questions : [newQuestion()]);
+          setOpenIndex(draft.openIndex);
           return;
         }
         setTitle(quiz.title);
@@ -438,7 +450,10 @@ export function QuizEditor({
       .catch((err) => {
         if (cancelled) return;
         if (draft) {
-          applyDraft(draft);
+          setTitle(draft.title);
+          setDescription(draft.description);
+          setQuestions(draft.questions.length ? draft.questions : [newQuestion()]);
+          setOpenIndex(draft.openIndex);
           return;
         }
         setError(err instanceof ApiClientError ? err.detail : tc("error"));
