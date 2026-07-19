@@ -202,5 +202,5 @@ export interface AnswerPayload {
 }
 
 export interface ApiError {
-  detail: string;
+  detail: string | unknown;
 }

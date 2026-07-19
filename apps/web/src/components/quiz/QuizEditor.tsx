@@ -29,6 +29,46 @@ import { api, ApiClientError } from "@/lib/api";
 import type { QuestionIn, QuestionType, QuizOut } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
+type QuizDraft = {
+  title: string;
+  description: string;
+  questions: QuestionIn[];
+  openIndex: number | null;
+};
+
+function draftKey(quizId?: string) {
+  return `kahucik_quiz_draft_${quizId ?? "new"}`;
+}
+
+function readDraft(quizId?: string): QuizDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(draftKey(quizId));
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as QuizDraft;
+    if (!draft || !Array.isArray(draft.questions)) return null;
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(quizId: string | undefined, draft: QuizDraft) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(draftKey(quizId), JSON.stringify(draft));
+}
+
+function clearDraft(quizId?: string) {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(draftKey(quizId));
+}
+
+function clampTimer(value: number): number {
+  if (!Number.isFinite(value) || value < 5) return 20;
+  if (value > 240) return 240;
+  return Math.round(value);
+}
+
 function defaultOptions(type: QuestionType): QuestionIn["options"] {
   if (type === "true_false") {
     return [
@@ -181,13 +221,21 @@ function SortableQuestion({
               type="number"
               min={5}
               max={240}
-              value={question.timer_seconds}
-              onChange={(e) =>
+              placeholder="20"
+              value={question.timer_seconds || ""}
+              onChange={(e) => {
+                const raw = e.target.value;
                 onChange({
                   ...question,
-                  timer_seconds: Number(e.target.value),
-                })
-              }
+                  timer_seconds: raw === "" ? 0 : Number(raw),
+                });
+              }}
+              onBlur={() => {
+                const next = clampTimer(question.timer_seconds);
+                if (next !== question.timer_seconds) {
+                  onChange({ ...question, timer_seconds: next });
+                }
+              }}
             />
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-coral-600">
               <ImagePlus className="h-4 w-4" />
@@ -322,7 +370,8 @@ export function QuizEditor({
   const [questions, setQuestions] = useState<QuestionIn[]>([newQuestion()]);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [status, setStatus] = useState<string>("draft");
-  const [loading, setLoading] = useState(!!quizId);
+  const [loading, setLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -337,13 +386,38 @@ export function QuizEditor({
   );
 
   useEffect(() => {
-    if (!quizId) return;
+    let cancelled = false;
+    const draft = readDraft(quizId);
+
+    const applyDraft = (d: QuizDraft) => {
+      setTitle(d.title);
+      setDescription(d.description);
+      setQuestions(d.questions.length ? d.questions : [newQuestion()]);
+      setOpenIndex(d.openIndex);
+    };
+
+    if (!quizId) {
+      if (draft) applyDraft(draft);
+      if (!cancelled) {
+        setLoading(false);
+        setHydrated(true);
+      }
+      return () => {
+        cancelled = true;
+      };
+    }
+
     api
       .getQuiz(quizId)
       .then((quiz) => {
+        if (cancelled) return;
+        setStatus(quiz.status);
+        if (draft) {
+          applyDraft(draft);
+          return;
+        }
         setTitle(quiz.title);
         setDescription(quiz.description);
-        setStatus(quiz.status);
         setQuestions(
           quiz.questions.map((q) => ({
             id: q.id,
@@ -361,11 +435,30 @@ export function QuizEditor({
           })),
         );
       })
-      .catch((err) =>
-        setError(err instanceof ApiClientError ? err.detail : tc("error")),
-      )
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (cancelled) return;
+        if (draft) {
+          applyDraft(draft);
+          return;
+        }
+        setError(err instanceof ApiClientError ? err.detail : tc("error"));
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setHydrated(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [quizId, tc]);
+
+  useEffect(() => {
+    if (!hydrated || loading) return;
+    writeDraft(quizId, { title, description, questions, openIndex });
+  }, [title, description, questions, openIndex, quizId, hydrated, loading]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -388,25 +481,50 @@ export function QuizEditor({
 
   const save = useCallback(async () => {
     if (!title.trim()) {
+      setMessage(null);
       setError(t("validationTitle"));
       return;
     }
+    const normalized = questions.map((q) => ({
+      ...q,
+      timer_seconds: clampTimer(q.timer_seconds),
+    }));
+    const invalid = normalized.some(
+      (q) =>
+        !q.text.trim() ||
+        q.options.length < 2 ||
+        (q.type !== "puzzle" && !q.options.some((o) => o.is_correct)),
+    );
+    if (invalid) {
+      setMessage(null);
+      setError(t("validationQuestion"));
+      return;
+    }
+    setQuestions(normalized);
     setSaving(true);
     setError(null);
     try {
       let quiz: QuizOut;
       if (quizId) {
-        quiz = await api.updateQuiz(quizId, { title, description, questions });
+        quiz = await api.updateQuiz(quizId, {
+          title,
+          description,
+          questions: normalized,
+        });
       } else {
         quiz = await api.createQuiz({ title, description });
-        if (questions.length) {
-          quiz = await api.updateQuiz(quiz.id, { questions });
+        if (normalized.length) {
+          quiz = await api.updateQuiz(quiz.id, { questions: normalized });
         }
+        clearDraft("new");
       }
+      clearDraft(quizId ?? quiz.id);
       setMessage(t("saveSuccess"));
+      setError(null);
       onSaved?.(quiz);
       return quiz;
     } catch (err) {
+      setMessage(null);
       setError(err instanceof ApiClientError ? err.detail : tc("error"));
     } finally {
       setSaving(false);
@@ -420,7 +538,9 @@ export function QuizEditor({
       const published = await api.publishQuiz(quiz.id);
       setStatus(published.status);
       setMessage(t("publishSuccess"));
+      setError(null);
     } catch (err) {
+      setMessage(null);
       setError(err instanceof ApiClientError ? err.detail : tc("error"));
     }
   };
@@ -430,7 +550,7 @@ export function QuizEditor({
   return (
     <div className="space-y-6">
       {error ? <p className="text-rose-600">{error}</p> : null}
-      {message ? <p className="text-emerald-600">{message}</p> : null}
+      {!error && message ? <p className="text-emerald-600">{message}</p> : null}
 
       <Card className="space-y-4">
         <Input label={t("title")} value={title} onChange={(e) => setTitle(e.target.value)} />

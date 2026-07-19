@@ -52,8 +52,25 @@ export class ApiClientError extends Error {
 
 async function parseError(res: Response): Promise<string> {
   try {
-    const body = (await res.json()) as ApiError;
-    if (typeof body.detail === "string") return body.detail;
+    const body = (await res.json()) as { detail?: unknown };
+    const detail = body.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const parts = detail.map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "msg" in item) {
+          const msg = String((item as { msg: unknown }).msg);
+          const loc = (item as { loc?: unknown }).loc;
+          if (Array.isArray(loc) && loc.length) {
+            return `${loc.filter((p) => typeof p === "string" || typeof p === "number").join(".")}: ${msg}`;
+          }
+          return msg;
+        }
+        return null;
+      });
+      const joined = parts.filter(Boolean).join("; ");
+      if (joined) return joined;
+    }
     return res.statusText || "Request failed";
   } catch {
     return res.statusText || "Request failed";
