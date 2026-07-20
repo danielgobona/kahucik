@@ -204,7 +204,7 @@ function SortableQuestion({
             </span>
             <ChevronDown
               className={cn(
-                "ml-auto h-5 w-5 shrink-0 text-slate-400 transition-transform",
+                "ml-auto h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300 ease-in-out motion-reduce:transition-none",
                 open && "rotate-180",
               )}
             />
@@ -215,159 +215,170 @@ function SortableQuestion({
           </Button>
         </div>
 
-        {open ? (
-          <div className="space-y-3 border-t border-slate-100 px-5 py-4">
-            <Select
-              className="max-w-[220px]"
-              value={question.type}
-              onChange={(e) => setType(e.target.value as QuestionType)}
-              options={[
-                { value: "quiz", label: t("typeQuiz") },
-                { value: "true_false", label: t("typeTrueFalse") },
-                { value: "multi_select", label: t("typeMultiSelect") },
-                { value: "puzzle", label: t("typePuzzle") },
-              ]}
-            />
-            <Input
-              label={t("questionText")}
-              value={question.text}
-              onChange={(e) => onChange({ ...question, text: e.target.value })}
-              maxLength={240}
-            />
-            <Input
-              label={t("timer")}
-              type="number"
-              min={5}
-              max={240}
-              placeholder="20"
-              value={question.timer_seconds || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                onChange({
-                  ...question,
-                  timer_seconds: raw === "" ? 0 : Number(raw),
-                });
-              }}
-              onBlur={() => {
-                const next = clampTimer(question.timer_seconds);
-                if (next !== question.timer_seconds) {
-                  onChange({ ...question, timer_seconds: next });
-                }
-              }}
-            />
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-coral-600">
-              <ImagePlus className="h-4 w-4" />
-              {t("uploadImage")}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none",
+            open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          )}
+          aria-hidden={!open}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div
+              className="space-y-3 border-t border-slate-100 px-5 py-4"
+              inert={!open ? true : undefined}
+            >
+              <Select
+                className="max-w-[220px]"
+                value={question.type}
+                onChange={(e) => setType(e.target.value as QuestionType)}
+                options={[
+                  { value: "quiz", label: t("typeQuiz") },
+                  { value: "true_false", label: t("typeTrueFalse") },
+                  { value: "multi_select", label: t("typeMultiSelect") },
+                  { value: "puzzle", label: t("typePuzzle") },
+                ]}
+              />
+              <Input
+                label={t("questionText")}
+                value={question.text}
+                onChange={(e) => onChange({ ...question, text: e.target.value })}
+                maxLength={240}
+              />
+              <Input
+                label={t("timer")}
+                type="number"
+                min={5}
+                max={240}
+                placeholder="20"
+                value={question.timer_seconds || ""}
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void uploadImage(f, "question");
+                  const raw = e.target.value;
+                  onChange({
+                    ...question,
+                    timer_seconds: raw === "" ? 0 : Number(raw),
+                  });
+                }}
+                onBlur={() => {
+                  const next = clampTimer(question.timer_seconds);
+                  if (next !== question.timer_seconds) {
+                    onChange({ ...question, timer_seconds: next });
+                  }
                 }}
               />
-            </label>
-            {question.image_id ? (
-              <>
-                <MediaImage mediaId={question.image_id} className="max-h-32" />
-                <button
-                  type="button"
-                  className="text-xs text-rose-500"
-                  onClick={() => onChange({ ...question, image_id: null })}
-                >
-                  {t("removeImage")}
-                </button>
-              </>
-            ) : null}
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-coral-600">
+                <ImagePlus className="h-4 w-4" />
+                {t("uploadImage")}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadImage(f, "question");
+                  }}
+                />
+              </label>
+              {question.image_id ? (
+                <>
+                  <MediaImage mediaId={question.image_id} className="max-h-32" />
+                  <button
+                    type="button"
+                    className="text-xs text-rose-500"
+                    onClick={() => onChange({ ...question, image_id: null })}
+                  >
+                    {t("removeImage")}
+                  </button>
+                </>
+              ) : null}
 
-            <div className="space-y-2">
-              {question.options.map((opt, oi) => (
-                <div
-                  key={oi}
-                  className={cn(
-                    "flex flex-wrap items-center gap-2 rounded-xl border p-2",
-                    opt.is_correct && question.type !== "puzzle"
-                      ? "border-emerald-300 bg-emerald-50"
-                      : "border-slate-200",
-                  )}
-                >
-                  {question.type === "puzzle" ? (
-                    <span className="w-8 text-center text-sm font-bold text-slate-500">
-                      {oi + 1}
-                    </span>
-                  ) : (
-                    <label className="flex items-center gap-1 text-sm">
+              <div className="space-y-2">
+                {question.options.map((opt, oi) => (
+                  <div
+                    key={oi}
+                    className={cn(
+                      "flex flex-wrap items-center gap-2 rounded-xl border p-2",
+                      opt.is_correct && question.type !== "puzzle"
+                        ? "border-emerald-300 bg-emerald-50"
+                        : "border-slate-200",
+                    )}
+                  >
+                    {question.type === "puzzle" ? (
+                      <span className="w-8 text-center text-sm font-bold text-slate-500">
+                        {oi + 1}
+                      </span>
+                    ) : (
+                      <label className="flex items-center gap-1 text-sm">
+                        <input
+                          type={question.type === "multi_select" ? "checkbox" : "radio"}
+                          name={`correct-${id}`}
+                          checked={opt.is_correct}
+                          onChange={() => {
+                            const options = question.options.map((o, i) => {
+                              if (question.type === "multi_select") {
+                                return i === oi ? { ...o, is_correct: !o.is_correct } : o;
+                              }
+                              return { ...o, is_correct: i === oi };
+                            });
+                            onChange({ ...question, options });
+                          }}
+                        />
+                        {t("correct")}
+                      </label>
+                    )}
+                    <Input
+                      className="flex-1"
+                      value={opt.text}
+                      onChange={(e) => {
+                        const options = [...question.options];
+                        options[oi] = { ...options[oi], text: e.target.value };
+                        onChange({ ...question, options });
+                      }}
+                      maxLength={120}
+                      placeholder={t("optionText")}
+                    />
+                    <label className="cursor-pointer text-coral-500">
+                      <ImagePlus className="h-4 w-4" />
                       <input
-                        type={question.type === "multi_select" ? "checkbox" : "radio"}
-                        name={`correct-${id}`}
-                        checked={opt.is_correct}
-                        onChange={() => {
-                          const options = question.options.map((o, i) => {
-                            if (question.type === "multi_select") {
-                              return i === oi ? { ...o, is_correct: !o.is_correct } : o;
-                            }
-                            return { ...o, is_correct: i === oi };
-                          });
-                          onChange({ ...question, options });
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void uploadImage(f, oi);
                         }}
                       />
-                      {t("correct")}
                     </label>
+                  </div>
+                ))}
+                {(question.type === "multi_select" || question.type === "puzzle") &&
+                  question.options.length < 6 && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        onChange({
+                          ...question,
+                          options: [
+                            ...question.options,
+                            {
+                              text: "",
+                              is_correct: false,
+                              correct_order:
+                                question.type === "puzzle"
+                                  ? question.options.length
+                                  : undefined,
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      {t("addOption")}
+                    </Button>
                   )}
-                  <Input
-                    className="flex-1"
-                    value={opt.text}
-                    onChange={(e) => {
-                      const options = [...question.options];
-                      options[oi] = { ...options[oi], text: e.target.value };
-                      onChange({ ...question, options });
-                    }}
-                    maxLength={120}
-                    placeholder={t("optionText")}
-                  />
-                  <label className="cursor-pointer text-coral-500">
-                    <ImagePlus className="h-4 w-4" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) void uploadImage(f, oi);
-                      }}
-                    />
-                  </label>
-                </div>
-              ))}
-              {(question.type === "multi_select" || question.type === "puzzle") &&
-                question.options.length < 6 && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      onChange({
-                        ...question,
-                        options: [
-                          ...question.options,
-                          {
-                            text: "",
-                            is_correct: false,
-                            correct_order:
-                              question.type === "puzzle"
-                                ? question.options.length
-                                : undefined,
-                          },
-                        ],
-                      })
-                    }
-                  >
-                    {t("addOption")}
-                  </Button>
-                )}
+              </div>
             </div>
           </div>
-        ) : null}
+        </div>
       </Card>
     </div>
   );

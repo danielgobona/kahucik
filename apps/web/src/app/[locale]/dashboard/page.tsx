@@ -223,7 +223,12 @@ export default function DashboardPage() {
               {quizzes.map((quiz) => (
                 <Card key={quiz.id} className="flex flex-col gap-3">
                   <div>
-                    <h3 className="font-bold text-slate-800">{quiz.title}</h3>
+                    <Link
+                      href={`/quiz/${quiz.id}`}
+                      className="font-bold text-slate-800 hover:text-coral-600"
+                    >
+                      {quiz.title}
+                    </Link>
                     <p className="text-sm text-slate-500">
                       {{
                         draft: t("statusDraft"),
