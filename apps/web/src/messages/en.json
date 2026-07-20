@@ -51,7 +51,8 @@
     "archive": "Archive",
     "rank": "#{rank}",
     "score": "{score} pts",
-    "correct": "{correct}/{total} correct"
+    "correct": "{correct}/{total} correct",
+    "loadMore": "Load more"
   },
   "quiz": {
     "newTitle": "New quiz",

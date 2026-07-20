@@ -1,34 +1,44 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kahucik_api.auth.sessions import require_user
 from kahucik_api.db import get_db
 from kahucik_api.models.entities import User
+from kahucik_api.schemas.common import Page
 from kahucik_api.schemas.quiz import QuizCreate, QuizOut, QuizSummary, QuizUpdate
 from kahucik_api.services import quiz_service
 
 router = APIRouter(prefix="/api/quizzes", tags=["quizzes"])
 
 
-@router.get("", response_model=list[QuizSummary])
+@router.get("", response_model=Page[QuizSummary])
 async def list_my_quizzes(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
-) -> list[QuizSummary]:
-    quizzes = await quiz_service.list_quizzes(db, user.id)
-    return [
-        QuizSummary(
-            id=q.id,
-            title=q.title,
-            description=q.description,
-            status=q.status.value,
-            question_count=len(q.questions),
-            updated_at=q.updated_at,
-        )
-        for q in quizzes
-    ]
+    limit: int = Query(12, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+) -> Page[QuizSummary]:
+    quizzes, total = await quiz_service.list_quizzes(
+        db, user.id, limit=limit, offset=offset
+    )
+    return Page(
+        items=[
+            QuizSummary(
+                id=q.id,
+                title=q.title,
+                description=q.description,
+                status=q.status.value,
+                question_count=len(q.questions),
+                updated_at=q.updated_at,
+            )
+            for q in quizzes
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("", response_model=QuizOut)

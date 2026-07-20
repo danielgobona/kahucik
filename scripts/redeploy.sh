@@ -30,15 +30,17 @@ resolve_docker() {
 
 # Prefer Compose V2 plugin ("docker compose"). Refuse legacy docker-compose v1 —
 # it crashes with KeyError: 'ContainerConfig' on modern Docker Engine.
+# Sets global COMPOSE_CMD as a proper argv array (paths may contain spaces).
 resolve_compose() {
   local docker="$1"
   if [[ -n "${COMPOSE:-}" ]]; then
     # COMPOSE can be a full command string, e.g. "docker compose"
-    echo "$COMPOSE"
+    # shellcheck disable=SC2206
+    COMPOSE_CMD=($COMPOSE)
     return
   fi
   if "$docker" compose version >/dev/null 2>&1; then
-    echo "$docker compose"
+    COMPOSE_CMD=("$docker" "compose")
     return
   fi
   echo "error: Docker Compose V2 plugin is required (not legacy docker-compose 1.x)." >&2
@@ -50,8 +52,7 @@ resolve_compose() {
 }
 
 DOCKER="$(resolve_docker)"
-# shellcheck disable=SC2206
-COMPOSE_CMD=($(resolve_compose "$DOCKER"))
+resolve_compose "$DOCKER"
 echo "==> Using Docker CLI: $DOCKER"
 echo "==> Using Compose:    ${COMPOSE_CMD[*]}"
 

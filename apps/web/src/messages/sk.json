@@ -51,7 +51,8 @@
     "archive": "Archivovať",
     "rank": "#{rank}",
     "score": "{score} bodov",
-    "correct": "{correct}/{total} správne"
+    "correct": "{correct}/{total} správne",
+    "loadMore": "Načítať ďalšie"
   },
   "quiz": {
     "newTitle": "Nový kvíz",

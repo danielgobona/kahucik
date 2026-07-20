@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import redis.asyncio as redis
@@ -11,6 +11,7 @@ from kahucik_api.db import get_db
 from kahucik_api.game import engine
 from kahucik_api.models.entities import User
 from kahucik_api.redis_client import redis_dep
+from kahucik_api.schemas.common import Page
 from kahucik_api.schemas.game import (
     GameHistoryItem,
     GameOut,
@@ -60,13 +61,22 @@ async def leaderboard(db: AsyncSession = Depends(get_db)) -> list[LeaderboardEnt
     return [LeaderboardEntry(**row) for row in rows]
 
 
-@router.get("/meta/history", response_model=list[GameHistoryItem])
+@router.get("/meta/history", response_model=Page[GameHistoryItem])
 async def history(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_user),
-) -> list[GameHistoryItem]:
-    rows = await engine.user_history(db, user.id)
-    return [GameHistoryItem(**row) for row in rows]
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+) -> Page[GameHistoryItem]:
+    rows, total = await engine.user_history(
+        db, user.id, limit=limit, offset=offset
+    )
+    return Page(
+        items=[GameHistoryItem(**row) for row in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/code/{code}", response_model=GameOut)

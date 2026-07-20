@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,14 +31,28 @@ async def get_owned_quiz(db: AsyncSession, quiz_id: uuid.UUID, owner_id: uuid.UU
     return quiz
 
 
-async def list_quizzes(db: AsyncSession, owner_id: uuid.UUID) -> list[Quiz]:
+async def list_quizzes(
+    db: AsyncSession,
+    owner_id: uuid.UUID,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[Quiz], int]:
+    filters = (Quiz.owner_id == owner_id, Quiz.status != QuizStatus.ARCHIVED)
+    total = int(
+        (
+            await db.execute(select(func.count()).select_from(Quiz).where(*filters))
+        ).scalar_one()
+    )
     result = await db.execute(
         select(Quiz)
         .options(selectinload(Quiz.questions))
-        .where(Quiz.owner_id == owner_id, Quiz.status != QuizStatus.ARCHIVED)
+        .where(*filters)
         .order_by(Quiz.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 def _replace_questions(quiz: Quiz, questions: list[QuestionIn]) -> None:

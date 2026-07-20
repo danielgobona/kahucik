@@ -6,6 +6,7 @@ import type {
   LeaderboardEntry,
   MeResponse,
   MediaOut,
+  Page,
   QuizOut,
   QuizSummary,
   QuestionIn,
@@ -132,8 +133,12 @@ export const api = {
     return request<MeResponse>("/api/auth/me");
   },
 
-  listQuizzes() {
-    return request<QuizSummary[]>("/api/quizzes");
+  listQuizzes(params?: { limit?: number; offset?: number }) {
+    const search = new URLSearchParams();
+    if (params?.limit != null) search.set("limit", String(params.limit));
+    if (params?.offset != null) search.set("offset", String(params.offset));
+    const qs = search.toString();
+    return request<Page<QuizSummary>>(`/api/quizzes${qs ? `?${qs}` : ""}`);
   },
 
   createQuiz(body: { title: string; description?: string }) {
@@ -223,8 +228,14 @@ export const api = {
     return request<LeaderboardEntry[]>("/api/games/meta/leaderboard");
   },
 
-  gameHistory() {
-    return request<GameHistoryItem[]>("/api/games/meta/history");
+  gameHistory(params?: { limit?: number; offset?: number }) {
+    const search = new URLSearchParams();
+    if (params?.limit != null) search.set("limit", String(params.limit));
+    if (params?.offset != null) search.set("offset", String(params.offset));
+    const qs = search.toString();
+    return request<Page<GameHistoryItem>>(
+      `/api/games/meta/history${qs ? `?${qs}` : ""}`,
+    );
   },
 };
 

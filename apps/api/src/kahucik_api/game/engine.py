@@ -628,7 +628,21 @@ async def global_leaderboard(db: AsyncSession, limit: int = 50) -> list[dict[str
     return result
 
 
-async def user_history(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, Any]]:
+async def user_history(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    filters = (GameResult.user_id == user_id,)
+    total = int(
+        (
+            await db.execute(
+                select(func.count()).select_from(GameResult).where(*filters)
+            )
+        ).scalar_one()
+    )
     participant_count = (
         select(func.count())
         .select_from(GameParticipant)
@@ -639,9 +653,10 @@ async def user_history(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, A
     result = await db.execute(
         select(GameResult, Game, participant_count)
         .join(Game, Game.id == GameResult.game_id)
-        .where(GameResult.user_id == user_id)
+        .where(*filters)
         .order_by(GameResult.created_at.desc())
-        .limit(100)
+        .limit(limit)
+        .offset(offset)
     )
     out = []
     for gr, game, count in result.all():
@@ -657,4 +672,4 @@ async def user_history(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, A
                 "participants": int(count or 0),
             }
         )
-    return out
+    return out, total
