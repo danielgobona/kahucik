@@ -17,8 +17,8 @@
     "createCtaDesc": "Sign up to build and host your own Kahúcik games.",
     "createCtaLoggedIn": "Open your dashboard",
     "createCtaDescLoggedIn": "Build quizzes and host live games for your players.",
-    "gamesPlayed": "{count} games",
-    "wins": "{count} wins",
+    "gamesPlayed": "{count, plural, one {# game} other {# games}}",
+    "wins": "{count, plural, one {# win} other {# wins}}",
     "avgScore": "avg {score}"
   },
   "auth": {

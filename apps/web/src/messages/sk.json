@@ -17,8 +17,8 @@
     "createCtaDesc": "Zaregistruj sa a vytváraj a hostuj vlastné Kahúcik hry.",
     "createCtaLoggedIn": "Otvor prehľad",
     "createCtaDescLoggedIn": "Vytváraj kvízy a hostuj hry pre svojich hráčov.",
-    "gamesPlayed": "{count} hier",
-    "wins": "{count} výhier",
+    "gamesPlayed": "{count, plural, one {# hra} few {# hry} many {# hier} other {# hier}}",
+    "wins": "{count, plural, one {# výhra} few {# výhry} many {# výhier} other {# výhier}}",
     "avgScore": "priemer {score}"
   },
   "auth": {
