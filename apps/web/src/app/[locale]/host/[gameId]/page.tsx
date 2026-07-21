@@ -110,7 +110,7 @@ export default function HostPage() {
     setLiveState((prev) => (prev ? applyHostEvent(prev, msg) : prev));
   }, []);
 
-  const { connected, snapshot, error, hostStart, hostShowLeaderboard, hostNext } =
+  const { connected, snapshot, error, hostStart, hostNext } =
     useGameSocket({ gameId, role: "host", onEvent });
 
   const live = liveState;
@@ -213,11 +213,9 @@ export default function HostPage() {
             </div>
             <QuestionPrompt question={live.question} />
             {status === "question_reveal" && (
-              <div className="flex flex-wrap justify-center gap-3">
-                <Button size="lg" onClick={hostShowLeaderboard}>
-                  {t("showLeaderboard")}
-                </Button>
-                <Button size="lg" variant="secondary" onClick={hostNext}>
+              <div className="mx-auto max-w-lg space-y-6">
+                <LeaderboardList entries={live.leaderboard} />
+                <Button className="w-full" size="lg" onClick={hostNext}>
                   {t("next")}
                 </Button>
               </div>

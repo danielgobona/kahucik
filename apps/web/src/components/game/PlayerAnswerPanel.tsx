@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { Check, GripVertical } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { MediaImage } from "@/components/ui/MediaImage";
@@ -180,12 +180,18 @@ export function PlayerAnswerPanel({
               }
             }}
             className={cn(
-              "rounded-2xl px-4 py-5 text-left font-semibold text-white shadow-md transition active:scale-[0.98]",
+              "relative rounded-2xl px-4 py-5 text-left font-semibold text-white shadow-md transition active:scale-[0.98]",
               color,
-              isSelected && "ring-4 ring-white ring-offset-2 ring-offset-coral-200",
+              isSelected &&
+                "scale-[1.02] brightness-110 ring-4 ring-slate-900 ring-offset-2 ring-offset-white shadow-xl",
               locked && "cursor-not-allowed opacity-60",
             )}
           >
+            {isSelected && (
+              <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow">
+                <Check className="h-4 w-4" strokeWidth={3} />
+              </span>
+            )}
             <MediaImage mediaId={opt.image_id} alt="" className="mb-2 h-16 w-full rounded-xl object-cover" />
             {opt.text}
           </button>
