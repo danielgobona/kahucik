@@ -545,6 +545,7 @@ export function QuizEditor({
         clearDraft("new");
       }
       clearDraft(quizId ?? quiz.id);
+      setStatus(quiz.status);
       setMessage(t("saveSuccess"));
       setError(null);
       onSaved?.(quiz);
@@ -565,6 +566,23 @@ export function QuizEditor({
       setStatus(published.status);
       setMessage(t("publishSuccess"));
       setError(null);
+    } catch (err) {
+      setMessage(null);
+      setError(err instanceof ApiClientError ? err.detail : tc("error"));
+    }
+  };
+
+  const host = async () => {
+    const quiz = await save();
+    if (!quiz) return;
+    try {
+      let ready = quiz;
+      if (ready.status !== "published") {
+        ready = await api.publishQuiz(ready.id);
+        setStatus(ready.status);
+      }
+      const game = await api.hostGame(ready.id);
+      router.push(`/host/${game.id}`);
     } catch (err) {
       setMessage(null);
       setError(err instanceof ApiClientError ? err.detail : tc("error"));
@@ -633,14 +651,8 @@ export function QuizEditor({
             {t("publish")}
           </Button>
         )}
-        {status === "published" && quizId && (
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              const game = await api.hostGame(quizId);
-              router.push(`/host/${game.id}`);
-            }}
-          >
+        {quizId && (
+          <Button variant="secondary" onClick={() => void host()}>
             {t("hostAfterPublish")}
           </Button>
         )}
