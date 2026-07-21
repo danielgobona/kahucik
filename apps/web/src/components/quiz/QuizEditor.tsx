@@ -575,9 +575,6 @@ export function QuizEditor({
 
   return (
     <div className="space-y-6">
-      {error ? <p className="text-rose-600">{error}</p> : null}
-      {!error && message ? <p className="text-emerald-600">{message}</p> : null}
-
       <Card className="space-y-4">
         <Input label={t("title")} value={title} onChange={(e) => setTitle(e.target.value)} />
         <Textarea
@@ -627,7 +624,7 @@ export function QuizEditor({
         {t("addQuestion")}
       </Button>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button loading={saving} onClick={() => void save()}>
           {saving ? t("saving") : t("save")}
         </Button>
@@ -647,6 +644,8 @@ export function QuizEditor({
             {t("hostAfterPublish")}
           </Button>
         )}
+        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+        {!error && message ? <p className="text-sm text-emerald-600">{message}</p> : null}
       </div>
     </div>
   );
