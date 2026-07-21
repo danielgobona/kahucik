@@ -45,7 +45,7 @@ function SortableTile({
   color: string;
   disabled?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id, disabled });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -53,16 +53,19 @@ function SortableTile({
     <div
       ref={setNodeRef}
       style={style}
+      // Whole tile is the drag handle; touch-none stops the page from scrolling mid-drag.
       className={cn(
-        "flex items-center gap-2 rounded-2xl px-4 py-4 text-white shadow-md",
+        "flex touch-none items-center gap-2 rounded-2xl px-4 py-4 text-white shadow-md select-none",
         color,
-        disabled && "opacity-60",
+        disabled ? "opacity-60" : "cursor-grab active:cursor-grabbing",
+        isDragging && "z-10 opacity-90 shadow-xl",
       )}
+      {...(disabled ? {} : { ...attributes, ...listeners })}
     >
       {!disabled && (
-        <button type="button" className="cursor-grab" {...attributes} {...listeners}>
-          <GripVertical className="h-5 w-5" />
-        </button>
+        <span className="shrink-0 opacity-90" aria-hidden>
+          <GripVertical className="h-6 w-6" />
+        </span>
       )}
       <MediaImage mediaId={imageId} alt="" className="h-12 w-12 rounded-lg object-cover" />
       <span className="flex-1 font-semibold">{text}</span>
@@ -88,7 +91,13 @@ export function PlayerAnswerPanel({
       : [],
   );
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  // Distance constraint + touch-none on tiles: drag starts after a short move,
+  // without the browser treating the gesture as page scroll.
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  );
 
   const options = question.options;
 

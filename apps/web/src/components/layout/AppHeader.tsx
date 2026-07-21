@@ -18,23 +18,28 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/60 bg-white/70 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          <KahucikLogo variant="compact" className="h-11 w-11" />
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-4 sm:py-3">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <KahucikLogo variant="compact" className="h-9 w-9 sm:h-11 sm:w-11" />
           <span className="sr-only">Kahúcik</span>
         </Link>
-        <nav className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <nav className="flex shrink-0 flex-nowrap items-center gap-1 sm:gap-3">
           <LanguageSwitcher />
           {user ? (
             <>
               <Link href="/dashboard">
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm"
+                >
                   {t("dashboard")}
                 </Button>
               </Link>
               <Button
                 variant="secondary"
                 size="sm"
+                className="whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm"
                 onClick={() => {
                   void logout().catch(() => {
                     // Keep session UI; CSRF/network failures should not fake a logout.
@@ -47,12 +52,21 @@ export function AppHeader() {
           ) : (
             <>
               <Link href="/auth/login">
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm"
+                >
                   {t("login")}
                 </Button>
               </Link>
               <Link href="/auth/signup">
-                <Button size="sm">{t("signup")}</Button>
+                <Button
+                  size="sm"
+                  className="whitespace-nowrap px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm"
+                >
+                  {t("signup")}
+                </Button>
               </Link>
             </>
           )}
